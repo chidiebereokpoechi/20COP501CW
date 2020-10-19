@@ -205,7 +205,8 @@ class Table:
 
         return list(results)
 
-    def select_where(self, pairs: Dict[str, Union[str, int]]) -> list:
+    def select_where(self, pairs: Dict[str, Union[str, int]],
+                     op: str = "=", sep: str = "AND") -> list:
         '''
         Executes a WHERE SQL query using key-value pairs
         provided in the parameters
@@ -222,16 +223,16 @@ class Table:
             List of tuples containing the selected records
         '''
 
-        conditions = []
+        conditions: List[str] = []
 
         for column in pairs:
             conditions.append(
-                '%s = %s' %
-                (column, Util.escape_value(pairs[column]))
+                '%s %s %s' %
+                (column, op, Util.escape_value(pairs[column]))
             )
 
         stmt = 'SELECT * FROM `%s` WHERE ' % (self.name) + \
-            ' AND '.join(conditions)
+            (' %s ' % sep).join(conditions)
 
         results = self.__execute_sql(stmt)
 
@@ -239,9 +240,11 @@ class Table:
 
     def custom_command(self, stmt: str) -> sqlite3.Cursor:
         '''
-        Exectutes a custom SQL query for use-cases
+        Executes a custom SQL query for use-cases
         that require more granular control of the 
         database.
+
+        (This is essentially a wrapper for the `__execute_sql` method)
 
         Parameters
         ----------
@@ -348,6 +351,23 @@ class TableTest(unittest.TestCase):
         self.assertEqual(people[1][0], records[0][0])
         self.assertEqual(people[1][1], records[0][1])
 
+        records = self.table.select_where({
+            'name': r'%{}%'.format(people[1][1][:3])
+        }, op="LIKE")
+
+        self.assertEqual(len(records), 1)
+        self.assertTupleEqual(people[1], records[0])
+
+        records = self.table.select_where({
+            'name': people[1][1],
+            'ID': people[0][0]
+        }, sep="OR")
+
+        self.assertEqual(len(records), 2)
+
+        for i, person in enumerate(people):
+            self.assertTupleEqual(person, records[i])
+
     def test_custom_command(self) -> None:
         '''
         Test Table `custom_command` method
@@ -378,7 +398,7 @@ class Database:
         if (drop):
             try:
                 os.remove(name)
-            except Exception:
+            except:
                 pass
 
         self.name = name
