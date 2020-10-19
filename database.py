@@ -402,7 +402,7 @@ class Database:
                 pass
 
         self.name = name
-        self.connection = sqlite3.connect(name)
+        self.__connection = sqlite3.connect(name)
 
         # Create table for books (unique by ISBN)
         self.books = Table(self, 'book', {
@@ -442,8 +442,8 @@ class Database:
         on the connection object).
         '''
 
-        results = self.connection.execute(stmt)
-        self.connection.commit()
+        results = self.__connection.execute(stmt)
+        self.__connection.commit()
 
         return results
 
@@ -453,7 +453,7 @@ class Database:
         and deletes the database file.
         '''
 
-        self.connection.close()
+        self.__connection.close()
 
         if (not os.path.isfile(self.name)):
             return False
@@ -548,8 +548,7 @@ class DatabaseTest(unittest.TestCase):
 if (__name__ == '__main__'):
     print('[~] Testing database module')
     unittest.main()
-
 else:
-    database_name = 'Library.db'
-    database = Database(database_name)
+    DATABASE_NAME = 'Library.db'
+    database = Database(DATABASE_NAME)
     database.initialize()
