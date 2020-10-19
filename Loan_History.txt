@@ -1,0 +1,6 @@
+:transactions: book_id|checkout_date|return_date|member_id
+
+1|10/8/2018|10/9/2018|1230
+1|10/8/2018||1244
+1|10/8/2018||1643
+1|10/8/2018||1231

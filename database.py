@@ -10,9 +10,10 @@ __author__ = 'Chidiebere Okpoechi (Chidi)'
 __version__ = '1.0.0'
 
 import os
+import re
 import sqlite3
 import unittest
-from typing import Collection, Dict, List, Literal, Union
+from typing import Collection, Dict, List, Literal, Union, cast
 
 
 class Util:
@@ -407,20 +408,20 @@ class Database:
         # Create table for books (unique by ISBN)
         self.books = Table(self, 'book', {
             'ISBN': 'CHAR(13) PRIMARY KEY',
-            'title': 'VARCHAR(75)',
-            'author': 'VARCHAR(45)'
+            'title': 'VARCHAR(75) NOT NULL',
+            'author': 'VARCHAR(45) NOT NULL'
         })
 
         # Create table for book copies (unique by serial book id)
         self.book_copies = Table(self, 'book_copy', {
             'book_id': 'INTEGER PRIMARY KEY AUTOINCREMENT',
-            'ISBN': 'CHAR(13)'
+            'ISBN': 'CHAR(13) NOT NULL'
         })
 
         # Create table for transactions (unique by serial transaction id)
         self.transactions = Table(self, 'transaction', {
             'transaction_id': 'INTEGER PRIMARY KEY AUTOINCREMENT',
-            'book_id': 'INTEGER',
+            'book_id': 'INTEGER NOT NULL',
             'checkout_date': 'DATETIME',
             'return_date': 'DATETIME',
             'member_id': 'INTEGER'
@@ -435,11 +436,62 @@ class Database:
         self.book_copies.initialize()
         self.transactions.initialize()
 
+    def seed(self,
+             books_file='Book_Info.txt',
+             transactions_file='Loan_History.txt',
+             sep='|',
+             comment_start="#") -> None:
+        self.initialize()
+        books = self.books.list_all()
+
+        if (len(books) > 0):
+            return
+
+        data: Dict[str, List[tuple]] = {}
+        header: Union[str, None] = None
+        lines: List[str] = []
+
+        with open(books_file, 'r') as f:
+            lines += f.readlines()
+
+        with open(transactions_file, 'r') as f:
+            lines += f.readlines()
+
+        for line in lines:
+            trimmed = line.strip()
+
+            if (trimmed == '' or trimmed.startswith(comment_start)):
+                continue
+
+            match = re.search(r'^:(.*):', trimmed)
+
+            if (match is not None):
+                header = match.groups()[0]
+                data[header] = []
+            else:
+                record = [(None if x == '' else x) for x in trimmed.split(sep)]
+                data[str(header)].append(tuple(record))
+
+        self.books.insert(('ISBN', 'title', 'author'), data['books'])
+        self.book_copies.insert(('book_id', 'ISBN'), data['book_copies'])
+        self.transactions.insert(
+            ('book_id', 'checkout_date', 'return_date', 'member_id'), data['transactions'])
+
     def execute_sql(self, stmt: str) -> sqlite3.Cursor:
         '''
         Executes an SQL query on the database.
         (This is a wrapper for the execute command
         on the connection object).
+
+        Parameters
+        ----------
+        stmt : str
+            SQL statement to execute
+
+        Returns
+        -------
+        cursor : sqlite3.Cursor
+            SQLite3 database cursor
         '''
 
         results = self.__connection.execute(stmt)
@@ -447,23 +499,25 @@ class Database:
 
         return results
 
-    def drop(self) -> bool:
+    def drop(self) -> None:
         '''
         Closes the database connection
         and deletes the database file.
+
+        Raises
+        ------
+        e : Exception
         '''
 
         self.__connection.close()
 
         if (not os.path.isfile(self.name)):
-            return False
+            raise Exception('%s does not exist' % self.name)
 
         try:
             os.remove(self.name)
-
-            return True
         except:
-            return False
+            raise Exception('An error occured while removing %s' % self.name)
 
 
 class DatabaseTest(unittest.TestCase):
@@ -472,7 +526,8 @@ class DatabaseTest(unittest.TestCase):
         Test Database `initialize` method
         '''
 
-        database = Database('library_test.db', drop=True)
+        DATABASE_NAME = 'library_test.db'
+        database = Database(DATABASE_NAME, drop=True)
 
         self.assertIsInstance(database.books, Table)
         self.assertIsInstance(database.book_copies, Table)
@@ -484,6 +539,7 @@ class DatabaseTest(unittest.TestCase):
 
         database.initialize()
 
+        self.assertTrue(os.path.isfile(DATABASE_NAME))
         self.assertTrue(database.books.check_exists())
         self.assertTrue(database.book_copies.check_exists())
         self.assertTrue(database.transactions.check_exists())
@@ -539,10 +595,17 @@ class DatabaseTest(unittest.TestCase):
         Test Database `drop` method
         '''
 
-        database = Database('random.db', drop=True)
+        DATABASE_NAME = 'random.db'
+        database = Database(DATABASE_NAME, drop=True)
+        database.initialize()
 
-        self.assertTrue(database.drop())
-        self.assertFalse(database.drop())
+        self.assertTrue(os.path.isfile(DATABASE_NAME))
+
+        database.drop()
+        self.assertFalse(os.path.isfile(DATABASE_NAME))
+
+        with self.assertRaises(Exception):
+            database.drop()
 
 
 if (__name__ == '__main__'):
@@ -551,4 +614,4 @@ if (__name__ == '__main__'):
 else:
     DATABASE_NAME = 'Library.db'
     database = Database(DATABASE_NAME)
-    database.initialize()
+    database.seed()

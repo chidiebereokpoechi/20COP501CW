@@ -1,0 +1,20 @@
+:books: ISBN|title|author
+
+9780553381689|A Game of Thrones (A Song of Ice and Fire, Book 1)|Martin, George R. R.
+9780786838653|The Lightning Thief (Percy Jackson and the Olympians, Book 1)|Riordan, Rick
+
+:book_copies: book_id|ISBN
+
+# 5 copies of A Game of Thrones
+1|9780553381689
+2|9780553381689
+3|9780553381689
+4|9780553381689
+5|9780553381689
+
+# 5 copies of The Lightning Thief
+6|9780786838653
+7|9780786838653
+8|9780786838653
+9|9780786838653
+10|9780786838653

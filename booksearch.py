@@ -50,7 +50,7 @@ def search_book(search_string: str,
 
 
 class BookSearchTest(unittest.TestCase):
-    def test_search_book(self):
+    def test_search_book(self) -> None:
         '''
         Test `search_book` function
         '''
@@ -82,5 +82,5 @@ class BookSearchTest(unittest.TestCase):
 
 
 if (__name__ == "__main__"):
-    print('[~] Testing database module')
+    print('[~] Testing booksearch module')
     unittest.main()
