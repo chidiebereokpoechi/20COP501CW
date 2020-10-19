@@ -94,15 +94,34 @@ class UtilTest(unittest.TestCase):
 
 
 class Table:
-    def __init__(self, connection, name: str,
+    def __init__(self, database, name: str,
                  schema: Dict[str, str]) -> None:
 
-        self.connection = connection
+        self.database = database
         self.name = name
         self.schema = schema
 
-        if (connection == None):
+        if (database == None):
             raise Exception('Database connection was not specified')
+
+    def __execute_sql(self, stmt: str) -> sqlite3.Cursor:
+        '''
+        Executes an SQL query on the database.
+        (This is a wrapper for the execute command
+        on the database object).
+
+        Parameters
+        ----------
+        stmt : str
+            SQL statement to execute
+
+        Returns
+        -------
+        cursor : sqlite3.Cursor
+            SQLite3 database cursor
+        '''
+
+        return self.database.execute_sql(stmt)
 
     def initialize(self) -> None:
         '''
@@ -118,7 +137,7 @@ class Table:
         stmt = 'CREATE TABLE IF NOT EXISTS `%s` (%s)' % (
             self.name, ', '.join(columns))
 
-        self.execute_sql(stmt)
+        self.__execute_sql(stmt)
 
     def check_exists(self) -> bool:
         '''
@@ -133,7 +152,7 @@ class Table:
         stmt = 'SELECT name FROM sqlite_master \
             WHERE type=\'table\' AND name=\'%s\'' % (self.name)
 
-        results = self.execute_sql(stmt)
+        results = self.__execute_sql(stmt)
 
         return len(list(results)) == 1
 
@@ -169,7 +188,7 @@ class Table:
 
         stmt = head + ', '.join(records)
 
-        return self.execute_sql(stmt)
+        return self.__execute_sql(stmt)
 
     def list_all(self) -> list:
         '''
@@ -182,7 +201,7 @@ class Table:
         '''
 
         stmt = 'SELECT * FROM `%s`' % self.name
-        results = self.execute_sql(stmt)
+        results = self.__execute_sql(stmt)
 
         return list(results)
 
@@ -214,7 +233,7 @@ class Table:
         stmt = 'SELECT * FROM `%s` WHERE ' % (self.name) + \
             ' AND '.join(conditions)
 
-        results = self.execute_sql(stmt)
+        results = self.__execute_sql(stmt)
 
         return list(results)
 
@@ -235,35 +254,16 @@ class Table:
             SQLite3 database cursor
         '''
 
-        return self.execute_sql(stmt)
-
-    def execute_sql(self, stmt: str) -> sqlite3.Cursor:
-        '''
-        Executes an SQL query on the database.
-        (This is a wrapper for the execute command
-        on the connection object).
-
-        Parameters
-        ----------
-        stmt : str
-            Custom SQL statement to execute
-
-        Returns
-        -------
-        cursor : sqlite3.Cursor
-            SQLite3 database cursor
-        '''
-
-        return self.connection.execute_sql(stmt)
+        return self.__execute_sql(stmt)
 
 
 class TableTest(unittest.TestCase):
     def setUp(self) -> None:
         '''
-        Put testing requirements in place
+        Prepare test class for tests
         '''
 
-        self.database = Database('test.db', drop=True)
+        self.database = Database('humans.db', drop=True)
         self.table = Table(self.database, 'person', {
             'ID': 'INTEGER PRIMARY KEY',
             'NAME': 'VARCHAR(45)'
@@ -374,7 +374,7 @@ class TableTest(unittest.TestCase):
 
 
 class Database:
-    def __init__(self, name: str = 'Library.db', drop: bool = False) -> None:
+    def __init__(self, name: str, drop: bool = False) -> None:
         if (drop):
             try:
                 os.remove(name)
@@ -438,8 +438,12 @@ class Database:
         if (not os.path.isfile(self.name)):
             return False
 
-        os.remove(self.name)
-        return True
+        try:
+            os.remove(self.name)
+
+            return True
+        except:
+            return False
 
 
 class DatabaseTest(unittest.TestCase):
@@ -448,7 +452,8 @@ class DatabaseTest(unittest.TestCase):
         Test Database `initialize` method
         '''
 
-        database = Database('test.db', drop=True)
+        database = Database('library_test.db', drop=True)
+
         self.assertIsInstance(database.books, Table)
         self.assertIsInstance(database.book_copies, Table)
         self.assertIsInstance(database.transactions, Table)
@@ -458,6 +463,7 @@ class DatabaseTest(unittest.TestCase):
         self.assertFalse(database.transactions.check_exists())
 
         database.initialize()
+
         self.assertTrue(database.books.check_exists())
         self.assertTrue(database.book_copies.check_exists())
         self.assertTrue(database.transactions.check_exists())
@@ -469,7 +475,7 @@ class DatabaseTest(unittest.TestCase):
         Test Database `execute_sql` method
         '''
 
-        database = Database('test.db', drop=True)
+        database = Database('books.db', drop=True)
         database.initialize()
 
         book_agot = (
@@ -504,14 +510,16 @@ class DatabaseTest(unittest.TestCase):
         self.assertEqual(len(books), 1)
         self.assertEqual(books[0][0], book_agot[0])
         self.assertEqual(books[0][1], book_agot[1])
-        self.assertEqual(books[0][1], book_agot[2])
+        self.assertEqual(books[0][2], book_agot[2])
+
+        database.drop()
 
     def test_drop(self) -> None:
         '''
         Test Database `drop` method
         '''
 
-        database = Database('random', drop=True)
+        database = Database('random.db', drop=True)
 
         self.assertTrue(database.drop())
         self.assertFalse(database.drop())
@@ -522,5 +530,6 @@ if (__name__ == '__main__'):
     unittest.main()
 
 else:
-    database = Database()
+    database_name = 'Library.db'
+    database = Database(database_name)
     database.initialize()
